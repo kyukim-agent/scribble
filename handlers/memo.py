@@ -6,9 +6,10 @@ def _build_project_buttons(
     confidence: str,
     project: str | None,
     candidates: list[str],
-    all_projects: list[str],
+    all_projects: list[dict],
 ) -> tuple[list[list[dict]], str]:
     """인라인 키보드 버튼과 질문 메시지를 구성합니다."""
+    all_names = [p["name"] for p in all_projects]
     if confidence == "medium":
         button_projects: list[str] = []
         if project:
@@ -27,7 +28,7 @@ def _build_project_buttons(
 
     # 표시 안 된 프로젝트가 있으면 '기타 입력' 추가
     shown = set(button_projects) | {"Uncategorized"}
-    if any(p not in shown for p in all_projects):
+    if any(p not in shown for p in all_names):
         buttons.append([{"text": "✏️ 기타 입력", "callback_data": "project:__other__"}])
 
     return buttons, question
@@ -53,7 +54,7 @@ async def handle_memo(chat_id: int, text: str) -> None:
         cache.clear_pending(chat_id)
         await telegram.send_message(chat_id, "이전 메모가 Uncategorized로 저장됐어요.")
 
-    projects = await notion.get_active_projects()
+    projects = await notion.get_active_projects()  # list[dict]
     result = await llm.process_memo(text, projects)
 
     if result is None:

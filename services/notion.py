@@ -20,7 +20,8 @@ def _now_iso() -> str:
 # ── Project Registry DB ───────────────────────────────────────────────────────
 
 
-async def get_active_projects() -> list[str]:
+async def get_active_projects() -> list[dict]:
+    """Active 프로젝트 목록을 [{name, description}, ...] 형태로 반환합니다."""
     cached = cache.get_projects()
     if cached is not None:
         return cached
@@ -34,11 +35,15 @@ async def get_active_projects() -> list[str]:
         )
         data = resp.json()
 
-    projects: list[str] = []
+    projects: list[dict] = []
     for page in data.get("results", []):
         title_parts = page["properties"]["Name"]["title"]
-        if title_parts:
-            projects.append(title_parts[0]["text"]["content"])
+        if not title_parts:
+            continue
+        name = title_parts[0]["text"]["content"]
+        desc_parts = page["properties"].get("Description", {}).get("rich_text", [])
+        description = desc_parts[0]["text"]["content"] if desc_parts else ""
+        projects.append({"name": name, "description": description})
 
     cache.set_projects(projects)
     return projects
@@ -78,11 +83,22 @@ async def ensure_uncategorized() -> None:
     cache.invalidate_projects()
 
 
-async def add_project(name: str) -> bool:
+async def add_project(name: str, description: str = "") -> bool:
     """프로젝트를 추가합니다. 이미 존재하면 False를 반환합니다."""
     projects = await get_active_projects()
-    if name in projects:
+    if any(p["name"] == name for p in projects):
         return False
+
+    properties: dict = {
+        "Name": {"title": [{"text": {"content": name}}]},
+        "Active": {"checkbox": True},
+        "Is System": {"checkbox": False},
+        "Created At": {"date": {"start": _now_iso()}},
+    }
+    if description:
+        properties["Description"] = {
+            "rich_text": [{"text": {"content": description[:2000]}}]
+        }
 
     async with httpx.AsyncClient() as client:
         await client.post(
@@ -90,12 +106,7 @@ async def add_project(name: str) -> bool:
             headers=_HEADERS,
             json={
                 "parent": {"database_id": settings.notion_project_db_id},
-                "properties": {
-                    "Name": {"title": [{"text": {"content": name}}]},
-                    "Active": {"checkbox": True},
-                    "Is System": {"checkbox": False},
-                    "Created At": {"date": {"start": _now_iso()}},
-                },
+                "properties": properties,
             },
             timeout=10.0,
         )
@@ -126,6 +137,38 @@ async def delete_project(name: str) -> bool:
             f"{_BASE}/pages/{page['id']}",
             headers=_HEADERS,
             json={"properties": {"Active": {"checkbox": False}}},
+            timeout=10.0,
+        )
+
+    cache.invalidate_projects()
+    return True
+
+
+async def update_project_description(name: str, description: str) -> bool:
+    """기존 프로젝트의 Description을 업데이트합니다. 미존재 시 False를 반환합니다."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{_BASE}/databases/{settings.notion_project_db_id}/query",
+            headers=_HEADERS,
+            json={"filter": {"property": "Name", "title": {"equals": name}}},
+            timeout=10.0,
+        )
+        data = resp.json()
+        results = data.get("results", [])
+        if not results:
+            return False
+
+        page_id = results[0]["id"]
+        await client.patch(
+            f"{_BASE}/pages/{page_id}",
+            headers=_HEADERS,
+            json={
+                "properties": {
+                    "Description": {
+                        "rich_text": [{"text": {"content": description[:2000]}}]
+                    }
+                }
+            },
             timeout=10.0,
         )
 

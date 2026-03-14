@@ -8,6 +8,8 @@ _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
 _SYSTEM_PROMPT = """당신은 사용자의 개인 메모를 분석하는 어시스턴트입니다.
 아래 작업을 한 번에 수행하세요:
 1. 프로젝트 목록을 참고하여 메모를 가장 적합한 프로젝트로 분류
+   - 각 프로젝트에는 이름(name)과 배경 설명(description)이 제공됩니다.
+   - description이 있는 경우 반드시 참고하여 분류 정확도를 높이세요.
 2. 메모에서 태그를 추출 (최대 5개)
 3. 메모 내용을 구조화 (제목 1줄 + 핵심 Bullet 3~5개 + 교정된 원문)
 
@@ -33,14 +35,27 @@ confidence 기준:
 }"""
 
 
-async def process_memo(text: str, projects: list[str]) -> Optional[dict]:
-    projects_str = ", ".join(projects) if projects else "없음"
-    user_msg = f"프로젝트 목록: {projects_str}\n\n메모: {text}"
+async def process_memo(text: str, projects: list[dict]) -> Optional[dict]:
+    # 프로젝트 컨텍스트 블록 구성
+    if projects:
+        project_lines = []
+        for p in projects:
+            name = p["name"]
+            desc = p.get("description", "").strip()
+            if desc:
+                project_lines.append(f"- {name}: {desc}")
+            else:
+                project_lines.append(f"- {name}")
+        projects_str = "\n".join(project_lines)
+    else:
+        projects_str = "없음"
+
+    user_msg = f"프로젝트 목록:\n{projects_str}\n\n메모: {text}"
 
     for attempt in range(3):
         try:
             response = await _client.messages.create(
-                model="claude-sonnet-4-6",
+                model="claude-haiku-4-5",
                 max_tokens=1024,
                 system=_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],

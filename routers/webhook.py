@@ -50,8 +50,31 @@ async def telegram_webhook(
     if not chat_id or not text:
         return {"ok": True}
 
-    # '기타 입력' 후 프로젝트명 직접 입력 대기 상태
     pending = cache.get_pending(chat_id)
+
+    # 프로젝트 설명 입력 대기 상태 (신규 추가 시)
+    if (
+        pending
+        and pending.get("mode") == "awaiting_project_desc"
+        and not text.startswith("/")
+    ):
+        background_tasks.add_task(
+            cmd_handler.handle_project_desc_input, chat_id, text, pending
+        )
+        return {"ok": True}
+
+    # 프로젝트 설명 수정 대기 상태 (기존 프로젝트 /desc 명령 후)
+    if (
+        pending
+        and pending.get("mode") == "awaiting_desc_update"
+        and not text.startswith("/")
+    ):
+        background_tasks.add_task(
+            cmd_handler.handle_desc_update_input, chat_id, text, pending
+        )
+        return {"ok": True}
+
+    # '기타 입력' 후 프로젝트명 직접 입력 대기 상태
     if (
         pending
         and pending.get("mode") == "awaiting_project_text"

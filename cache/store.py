@@ -8,7 +8,7 @@ PENDING_TTL = 300  # 5 minutes
 class CacheStore:
     def __init__(self):
         self._pending: dict[int, dict] = {}
-        self._projects: Optional[list[str]] = None
+        self._projects: Optional[list[dict]] = None
         self._processed_updates: set[int] = set()
 
     # ── Update deduplication ──────────────────────────────────────────────────
@@ -54,10 +54,10 @@ class CacheStore:
 
     # ── Project list cache ────────────────────────────────────────────────────
 
-    def get_projects(self) -> Optional[list[str]]:
+    def get_projects(self) -> Optional[list[dict]]:
         return self._projects
 
-    def set_projects(self, projects: list[str]):
+    def set_projects(self, projects: list[dict]):
         self._projects = projects
 
     def invalidate_projects(self):
