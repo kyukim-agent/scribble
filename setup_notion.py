@@ -37,6 +37,7 @@ def patch_database(db_id: str, properties: dict, label: str) -> None:
 # ── Scribble Index DB ─────────────────────────────────────────────────────────
 
 SCRIBBLE_PROPERTIES = {
+    "Name":       {"name": "Title", "title": {}},  # 기본 title 컬럼을 "Title"로 rename
     "Project":    {"select": {}},
     "Tags":       {"multi_select": {}},
     "Created At": {"date": {}},
