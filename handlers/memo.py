@@ -54,7 +54,9 @@ async def handle_memo(chat_id: int, text: str) -> None:
         cache.clear_pending(chat_id)
         await telegram.send_message(chat_id, "이전 메모가 Uncategorized로 저장됐어요.")
 
-    projects = await notion.get_active_projects()  # list[dict]
+    projects = await notion.get_active_projects()
+    if projects is None:
+        projects = []
     result = await llm.process_memo(text, projects)
 
     if result is None:

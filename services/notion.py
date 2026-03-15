@@ -28,14 +28,18 @@ async def get_active_projects() -> list[dict]:
     if cached is not None:
         return cached
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{_BASE}/databases/{settings.notion_project_db_id}/query",
-            headers=_HEADERS,
-            json={"filter": {"property": "Active", "checkbox": {"equals": True}}},
-            timeout=10.0,
-        )
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{_BASE}/databases/{settings.notion_project_db_id}/query",
+                headers=_HEADERS,
+                json={"filter": {"property": "Active", "checkbox": {"equals": True}}},
+                timeout=10.0,
+            )
+            data = resp.json()
+    except (httpx.TimeoutException, httpx.ConnectError) as e:
+        logger.error("Notion get_active_projects network error: %s", e)
+        return []
 
     projects: list[dict] = []
     for page in data.get("results", []):
