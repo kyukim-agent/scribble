@@ -1,7 +1,6 @@
 import httpx
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 from config import settings
 from cache.store import cache
 
@@ -225,7 +224,7 @@ async def save_memo(
         structured = structured[:1997] + "..."
 
     properties = {
-        "Title": {"title": [{"text": {"content": (title or raw_text)[:200]}}]},
+        "Name": {"title": [{"text": {"content": (title or raw_text)[:200]}}]},
         "Project": {"select": {"name": project}},
         "Tags": {"multi_select": [{"name": t} for t in tags[:5]]},
         "Created At": {"date": {"start": _now_iso()}},
