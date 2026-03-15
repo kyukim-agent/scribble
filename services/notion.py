@@ -1,8 +1,11 @@
 import httpx
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from config import settings
 from cache.store import cache
+
+logger = logging.getLogger(__name__)
 
 _NOTION_VERSION = "2022-06-28"
 _HEADERS = {
@@ -243,6 +246,10 @@ async def save_memo(
                 },
                 timeout=15.0,
             )
-            return resp.status_code == 200
-    except Exception:
+            if resp.status_code not in (200, 201):
+                logger.error("Notion save_memo failed: status=%s body=%s", resp.status_code, resp.text)
+                return False
+            return True
+    except Exception as e:
+        logger.exception("Notion save_memo exception: %s", e)
         return False
